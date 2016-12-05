@@ -166,7 +166,38 @@ $(document).ready(function() {
 			$($(rows[0]).children()[2]).addClass(blinkClass);
 		}
 	}
-
+	
+	function findDiagonals(tiktakState, daigonalLength){
+		var diagonals = [];
+		if(tiktakState.length !== tiktakState[0].length){
+			throw "Two dimentional array must be square.";
+		}
+		for (var i = 0; i < tiktakState.length; i++) {
+			for(var j = 0; j < tiktakState[0].length; j++){
+				var diagonal1 = [], x, y;
+				var diagonal2 = [], w, z;
+				for(var k = 0; k < daigonalLength; k++){
+					x = i + k;
+					y = j + k;
+					w = i + (daigonalLength - 1) - k;
+					z = j + k;
+					if(x < tiktakState.length && y < tiktakState[0].length){
+						diagonal1.push({'val':tiktakState[x][y], 'x':x, 'y':y});
+					}
+					if(w >= 0 && z >=0 && z < tiktakState.length
+						&& w < tiktakState[0].length){
+						diagonal2.push({'val':tiktakState[w][z], 'x':x, 'y':y});
+					}
+				}
+				if(x < tiktakState.length && y < tiktakState[0].length){
+					diagonals.push(diagonal1);
+					diagonals.push(diagonal2);
+				}
+			}
+		}
+		return diagonals;
+	}
+	
 	Array.prototype.sum = function() {
 		var arr = this;
 		return arr.reduce(function(sum, item) {
