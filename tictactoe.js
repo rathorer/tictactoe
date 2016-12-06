@@ -18,12 +18,12 @@ $(document).ready(function() {
 				tiktakState[done.x][done.y] = 1;
 				if (done.gameover) {
 					$('#message').html('<h4>Game over</h4>');
-					gameOverHighlight(tiktakState);
+					highlightWinningLine(tiktakState);
 
 				}
 			} else {
 				$('#message').html('<h4>Game over</h4>');
-				gameOverHighlight(tiktakState);
+				highlightWinningLine(tiktakState);
 			}
 			var rows = $("#tiktakTable").find('tr');
 			$($(rows[done.x]).find('td')[done.y]).html('X');
@@ -35,7 +35,6 @@ $(document).ready(function() {
 		var updatedRow = tiktakState[pos.x];
 		var updatedCol = 
 			[tiktakState[0][pos.y], tiktakState[1][pos.y], tiktakState[2][pos.y]];
-		if(pos.x === 1 || pos.y === 1 && (pos.x !== 1))
 
 		var done = priorityWiseUpdate(tiktakState, tryToWin);
 		if (done.done) {
@@ -45,8 +44,16 @@ $(document).ready(function() {
 		}
 		if (!done.done) {
 			// row check
-			
-
+			var updateTo = randomUpdateTo(pos, tiktakState);
+			if(typeof updateTo !== 'undefined'){
+				tiktakState[updateTo.x][updateTo.y] = 1;
+				done.done = true;
+				done.x = updateTo.x;
+				done.y = updateTo.y;
+			}
+			else{
+				done.gameover = true;
+			}
 		}
 		return done;
 	}
@@ -117,19 +124,34 @@ $(document).ready(function() {
 		return row;
 	}
 
-	function randomUpdate(row, done) {
-		if (row.sum() == -1) {
-			var emptyplace = row.lastIndexOf(0);
-			if (emptyplace >= 0) {
-				row[emptyplace] = 1;
-				done.y = emptyplace;
-				done.done = true;
-			}
+	function randomUpdateTo(pos, tiktakState) {
+		var cpRow = tiktakState[pos.x];
+		var cpCol = 
+			[tiktakState[0][pos.y], tiktakState[1][pos.y], tiktakState[2][pos.y]];
+		var possibilities = [];
+		var idx = cpRow.lastIndexOf(0);
+		if(idx !== -1){
+			possibilities.push({x: pos.x, y: idx});
 		}
-		return row;
+		idx = cpCol.lastIndexOf(0);
+		if(idx !== -1){
+			possibilities.push({x: idx, y: pos.y});
+		}
+		var allDiagonals = findDiagonals(tiktakState, 3);
+		var cpDiagonals = diagonalsAcrossPoint(pos, allDiagonals);
+		if(cpDiagonals.length > 0){
+			cpDiagonals.forEach(function(diagonal){
+				var point = diagonal.find(function(pos){
+					return pos.val === 0;
+				});
+				possibilities.push({x: point.x, y: point.y});
+			});
+		}
+		var randomIndex = Math.floor(Math.random() * possibilities.length - 1) + 1;		
+		return possibilities[randomIndex];
 	}
 
-	function gameOverHighlight(tiktakState) {
+	function highlightWinningLine(tiktakState) {
 		$('#tiktakTable').off('click.mynamespace');
 		var rows = $("#tiktakTable").children().children();
 		for (var i = 0; i < tiktakState.length; i++) {
@@ -166,7 +188,15 @@ $(document).ready(function() {
 			$($(rows[0]).children()[2]).addClass(blinkClass);
 		}
 	}
-	
+
+	function diagonalsAcrossPoint(point, allDiagonals) {
+		return allDiagonals.filter(function(item){
+			return item.includes(item.find(function(val){
+				return val.x === point.x && val.y === point.y;
+			}));
+		});
+	}
+
 	function findDiagonals(tiktakState, daigonalLength){
 		var diagonals = [];
 		if(tiktakState.length !== tiktakState[0].length){
@@ -186,7 +216,7 @@ $(document).ready(function() {
 					}
 					if(w >= 0 && z >=0 && z < tiktakState.length
 						&& w < tiktakState[0].length){
-						diagonal2.push({'val':tiktakState[w][z], 'x':x, 'y':y});
+						diagonal2.push({'val':tiktakState[w][z], 'x':w, 'y':z});
 					}
 				}
 				if(x < tiktakState.length && y < tiktakState[0].length){
@@ -197,11 +227,14 @@ $(document).ready(function() {
 		}
 		return diagonals;
 	}
-	
 	Array.prototype.sum = function() {
 		var arr = this;
 		return arr.reduce(function(sum, item) {
 			return sum + item;
 		}, 0);
+	};
+	Array.prototype.lastEmptyPlace = function() {
+		var arr = this;
+		return arr.lastIndexOf(0);
 	};
 });
