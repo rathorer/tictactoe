@@ -227,6 +227,36 @@ $(document).ready(function() {
 		}
 		return diagonals;
 	}
+	function isGameOver(pos, state, length){
+		var corrospondingRows = [],
+			corrospondingColumns = []
+			corrospondingDiagonals = [];
+
+		var getRow = function (forward) {
+			var row = [];
+			var operators = {
+			    '+' : function(x, y) {
+			        return x + y;
+			    },
+			    '-' : function(x, y) {
+			        return x - y;
+			    }
+			};
+			var rowMove = forward ? operators['+']: operators['-'];
+			for(var i = 0; i < length; i++){
+				var x = rowMove(pos.x, i);
+				row.push({val:state[x][pos.y], x:x, y:pos.y});
+			}
+			return row;
+		};
+
+		if((pos.x + length - 1) < state[pos.x].length){
+			corrospondingRows.push(getRow(true));
+		}
+		if((pos.x - (length - 1)) >= 0){
+			corrospondingRows.push(getRow(false));
+		}
+	}
 	Array.prototype.sum = function() {
 		var arr = this;
 		return arr.reduce(function(sum, item) {
