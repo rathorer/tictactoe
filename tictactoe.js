@@ -196,7 +196,27 @@ $(document).ready(function() {
 			}));
 		});
 	}
-
+	
+	function findRowsInFullRow(arr, rowLength) {
+		var rows = [];
+		for (var i = 0; i < arr.length; i++) {
+			var row = [];
+			for (var j = 0; j < rowLength; j++) {
+				var x = i + j;
+				if (x < arr.length) {
+					row.push({
+						'val': arr[x],
+						'x': x
+					});
+				}
+			}
+			if (row.length === rowLength) {
+				rows.push(row);
+			}
+		}
+		return rows;
+	}
+	
 	function findDiagonals(tiktakState, daigonalLength){
 		var diagonals = [];
 		if(tiktakState.length !== tiktakState[0].length){
