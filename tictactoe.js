@@ -269,11 +269,11 @@ $(document).ready(function() {
 	function isUserWon(state, winLength, pos) {
 		var won;
 		var winningSum = winLength * -1;
+
+		//For row
 		var start = Math.max(0, pos.y  - (winLength - 1)),
 			end = pos.y + winLength;
-		//For row
 		var rowMadeAt = findWinRow(state[pos.x].slice(start, end), winLength);
-		console.log(rowMadeAt, start, end);
 		if (rowMadeAt >= 0) {
 			won = {
 				from: { x: pos.x, y: rowMadeAt -1 },
@@ -281,6 +281,7 @@ $(document).ready(function() {
 			}
 			return won;
 		}
+
 		//For column
 		var start = Math.max(0, pos.x  - (winLength - 1)),
 			end = pos.x + winLength;
@@ -288,9 +289,7 @@ $(document).ready(function() {
 		var incolumn = state.map(function (row, idx) {
 			return row[pos.y];
 		}).slice(start, end);
-		console.log(incolumn);
 		var colMadeAt = findWinRow(incolumn, winLength);
-
 		if(colMadeAt >= 0){
 			won = {
 				from: { x: colMadeAt - 1, y: pos.y },
@@ -298,6 +297,25 @@ $(document).ready(function() {
 			}
 			return won;
 		}
+		//For forward diagonal
+		var dispacement = (winLength - 1);
+		var startX = Math.max(0, pos.x  - dispacement),
+			startY = Math.max(0, pos.y - dispacement)
+			endX = Math.min(state.length, pos.x + dispacement);
+			endY = Math.min(state.length, pos.y + dispacement)
+		
+		var fdiagonal = state.slice().map(function (row, idx) {
+			return row[pos.y];
+		}).slice(start, end);
+		var colMadeAt = findWinRow(incolumn, winLength);
+		if(colMadeAt >= 0){
+			won = {
+				from: { x: colMadeAt - 1, y: pos.y },
+				to: { x: colMadeAt + winLength - 1, y: pos.y }
+			}
+			return won;
+		}
+
 		return won;
 	}
 
