@@ -1,8 +1,9 @@
 $(document).ready(function() {
 	var tiktakState = [
-		[0, 0, 0],
-		[0, 0, 0],
-		[0, 0, 0]
+		[0, 0, 0, 0],
+		[0, 0, 0, 0],
+		[0, 0, 0, 0],
+		[0, 0, 0, 0]
 	];
 	$("#tiktakTable").delegate("td", "click", function() {
 		var cell = $(this);
@@ -300,13 +301,15 @@ $(document).ready(function() {
 		//For forward diagonal
 		var dispacement = (winLength - 1);
 		var startX = Math.max(0, pos.x  - dispacement),
-			startY = Math.max(0, pos.y - dispacement)
-			endX = Math.min(state.length, pos.x + dispacement);
-			endY = Math.min(state.length, pos.y + dispacement)
+			startY = Math.max(0, pos.y - dispacement),
+			endX = Math.min(state.length, pos.x + dispacement),
+			endY = Math.min(state.length, pos.y + dispacement);
 		
-		var fdiagonal = state.slice().map(function (row, idx) {
-			return row[pos.y];
-		}).slice(start, end);
+		var fdiagonal = state.slice(startX, endX).map(function (row, idx) {
+			return row.slice(startY, endY);
+		}).map(function (row, idx) {
+			 return row[idx]; 
+		});
 		var colMadeAt = findWinRow(incolumn, winLength);
 		if(colMadeAt >= 0){
 			won = {
