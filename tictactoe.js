@@ -299,6 +299,26 @@ $(document).ready(function() {
 			return won;
 		}
 		//For forward diagonal
+		/*
+		function getPositions(pos){
+var dispacement = (3- 1), winLength = 3; 
+		var tempX = pos.x - dispacement,
+			tempY = pos.y - dispacement,
+            tempeX = pos.x + winLength,
+            tempeY = pos.y + winLength;
+		var startX = Math.max(0, tempX),
+			startY = Math.max(0, tempY),
+			endX = Math.min(state.length, tempeX),
+			endY = Math.min(state.length, tempeY);
+		startX = tempY < 0 ? Math.max(0, startX + tempY): startX;
+		startY = tempX < 0 ? Math.max(0, startY + tempX): startY;
+        var xlen = state.length, ylen = state[0].length;
+        var a = tempeY - ylen, b = tempeX - xlen;
+        endX =  a > 0 ? endX - a: endX;
+        endY = b > 0? endY - b: endY;
+ console.log(startX, endX, startY, endY);
+}
+		*/
 		var dispacement = (winLength - 1);
 		var startX = Math.max(0, pos.x  - dispacement),
 			startY = Math.max(0, pos.y - dispacement),
@@ -315,6 +335,32 @@ $(document).ready(function() {
 			won = {
 				from: { x: colMadeAt - 1, y: pos.y },
 				to: { x: colMadeAt + winLength - 1, y: pos.y }
+			}
+			return won;
+		}
+		//For backward diagonal
+		var tempX = pos.x - dispacement,
+		tempY = pos.y - dispacement;
+		startX = Math.min(state.length, pos.x - dispacement),
+		startY = Math.max(0, pos.y - dispacement),
+		endX = Math.max(0, pos.x  + winLength),
+		endY = Math.min(state.length, pos.y + winLength);
+		var yLen = state[0].length;
+		startX = tempY > yLen ? Math.min(yLen, startX + (tempY - yLen)): startX;
+		startY = tempX < 0 ? Math.max(0, startY - tempX): startX;
+		var bdiagonal = state.slice(startX, endX).map(function (row, idx) {
+			return row.slice(startY, endY);
+		}).map(function (row, idx) {
+			 return row[row.length - (idx +1)]; 
+		});
+		var backwardDiaAt = findWinRow(bdiagonal, winLength);
+		console.log('backDia', bdiagonal , backwardDiaAt );
+		if(backwardDiaAt >= 0){
+			var xAt = startX - backwardDiaAt,
+				yAt = startY + backwardDiaAt;
+			won = {
+				from: { x: xAt, y: yAt },
+				to: { x: xAt - dispacement, y: yAt + dispacement }
 			}
 			return won;
 		}
