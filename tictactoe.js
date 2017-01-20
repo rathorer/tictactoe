@@ -1,23 +1,43 @@
 $(document).ready(function() {
-	var tiktakState = [
-		[0, 0, 0, 0],
-		[0, 0, 0, 0],
-		[0, 0, 0, 0],
-		[0, 0, 0, 0]
-	];
-	$("#tiktakTable").delegate("td", "click", function() {
+	var tiktakState,
+		userInput,
+		computerInput,
+		winLength,
+		gameover, userWinSum, computerWinSum;
+
+	function init() {
+		var winLength = 4, stateLength = 6;//TODO: replace with dynamic values.
+		var defaultValue = 0;
+		var tiktakState = new Array(stateLength)
+			.fill(new Array(stateLength).fill(defaultValue));,
+		userInput = -1,
+		computerInput = 1,
+		winLength = 4,
+		gameover = false,
+		userWinSum = userInput * winLength,
+		computerWinSum = computerInput * winLength;
+		window.addEventListener('gameover', (e) => {
+			var winLine = e.detail.winLine;
+			if(highlightWinningLine(winLine)){
+				$('#tiktakTable').off('click');
+			};
+		}, false);
+	}
+	init();
+
+	$("#tiktakTable").delegate("td", "click", function() {//TODO: bind mouseover
 		var cell = $(this);
 		cell.html("O");
 		var pos = {
 			x: cell[0].parentNode.rowIndex,
 			y: cell[0].cellIndex
 		};
-		tiktakState[pos.x][pos.y] = -1;
-
+		tiktakState[pos.x][pos.y] = userInput;
+		processUserEntry(tiktakState, winLength, pos);
 		setTimeout(function() {
-			var done = updateState(tiktakState, pos);
+			var done = play(tiktakState, pos);
 			if (done.done) {
-				tiktakState[done.x][done.y] = 1;
+				tiktakState[done.x][done.y] = computerInput;
 				if (done.gameover) {
 					$('#message').html('<h4>Game over</h4>');
 					highlightWinningLine(tiktakState);
@@ -33,11 +53,29 @@ $(document).ready(function() {
 		console.log(pos);
 	});
 
-	function updateState(tiktakState, pos) {
-		var updatedRow = tiktakState[pos.x];
-		var updatedCol =
-			[tiktakState[0][pos.y], tiktakState[1][pos.y], tiktakState[2][pos.y]];
+	function tryToDefend(row, done) {
+		if (row.sum() == -2) {
+			var emptyplace = row.indexOf(0);
+			row[emptyplace] = computerInput;
+			done.y = emptyplace;
+			done.done = true;
+		}
+		return row;
+	}
 
+	function tryToWin(row, done) {
+		if (row.sum() == 2) {
+			var emptyplace = row.indexOf(0);
+			if (emptyplace >= 0) {
+				row[emptyplace] = computerInput;
+				done.y = emptyplace;
+				done.done = true;
+			}
+		}
+		return row;
+	}
+
+	function play(tiktakState, pos) {
 		var done = priorityWiseUpdate(tiktakState, tryToWin);
 		if (done.done) {
 			done.gameover = true;
@@ -48,7 +86,7 @@ $(document).ready(function() {
 			// row check
 			var updateTo = randomUpdateTo(pos, tiktakState);
 			if (typeof updateTo !== 'undefined') {
-				tiktakState[updateTo.x][updateTo.y] = 1;
+				tiktakState[updateTo.x][updateTo.y] = computerInput;
 				done.done = true;
 				done.x = updateTo.x;
 				done.y = updateTo.y;
@@ -101,28 +139,6 @@ $(document).ready(function() {
 			return done;
 		}
 		return done;
-	}
-
-	function tryToDefend(row, done) {
-		if (row.sum() == -2) {
-			var emptyplace = row.indexOf(0);
-			row[emptyplace] = 1;
-			done.y = emptyplace;
-			done.done = true;
-		}
-		return row;
-	}
-
-	function tryToWin(row, done) {
-		if (row.sum() == 2) {
-			var emptyplace = row.indexOf(0);
-			if (emptyplace >= 0) {
-				row[emptyplace] = 1;
-				done.y = emptyplace;
-				done.done = true;
-			}
-		}
-		return row;
 	}
 
 	function randomUpdateTo(pos, tiktakState) {
@@ -209,44 +225,51 @@ $(document).ready(function() {
 			corrospondingRows.push(getRow(false));
 		}
 	}
-
-	function highlightWinningLine(tiktakState) {
-		$('#tiktakTable').off('click.mynamespace');
-		var rows = $("#tiktakTable").children().children();
-		for (var i = 0; i < tiktakState.length; i++) {
-			var rowSum = tiktakState[i].sum();
-			if (rowSum === -3 || tiktakState[i].sum() === 3) {
-				rows[i].addClass('blink-green');
-			}
-			if (rowSum === 3) {
-				rows[i].addClass('blink-red');
-			}
+	function highlightWinningLine(line){
+		var rows = $("#tiktakTable").children().children(),
+			winningSum = line.map(function(el){return el.val;}).sum();
+		var blink =  winningSum === computerWinSum ? 'blink-red' : 'blink-green';
+		for (var i = line.length - 1; i >= 0; i--) {
+			$($(rows[line[i].x]).children()[line[i].y]).addClass(blink);
 		}
-		// column check
-		for (var i = 0; i < tiktakState[0].length; i++) {
-			var column = [tiktakState[0][i], tiktakState[1][i], tiktakState[2][i]];
-			if (column.sum() === -3 || column.sum() === 3) {
-				var blinkClass = column.sum() === 3 ? 'blink-red' : 'blink-green';
-				$($(rows[0]).children()[i]).addClass(blinkClass);
-				$($(rows[1]).children()[i]).addClass(blinkClass);
-				$($(rows[2]).children()[i]).addClass(blinkClass);
-			}
-		}
-		var diagonal1 = [tiktakState[0][0], tiktakState[1][1], tiktakState[2][2]];
-		var diagonal2 = [tiktakState[2][0], tiktakState[1][1], tiktakState[0][2]];
-		if (diagonal1.sum() === 3 || diagonal1.sum() === -3) {
-			var blinkClass = diagonal1.sum() === 3 ? 'blink-red' : 'blink-green';
-			$($(rows[0]).children()[0]).addClass(blinkClass);
-			$($(rows[1]).children()[1]).addClass(blinkClass);
-			$($(rows[2]).children()[2]).addClass(blinkClass);
-		}
-		if (diagonal2.sum() === 3 || diagonal2.sum() === -3) {
-			var blinkClass = diagonal2.sum() === 3 ? 'blink-red' : 'blink-green';
-			$($(rows[2]).children()[0]).addClass(blinkClass);
-			$($(rows[1]).children()[1]).addClass(blinkClass);
-			$($(rows[0]).children()[2]).addClass(blinkClass);
-		}
+		return true;
 	}
+	// function highlightWinningLine(tiktakState) {
+	// 	$('#tiktakTable').off('click.mynamespace');
+	// 	var rows = $("#tiktakTable").children().children();
+	// 	for (var i = 0; i < tiktakState.length; i++) {
+	// 		var rowSum = tiktakState[i].sum();
+	// 		if (rowSum === -3 || tiktakState[i].sum() === 3) {
+	// 			rows[i].addClass('blink-green');
+	// 		}
+	// 		if (rowSum === 3) {
+	// 			rows[i].addClass('blink-red');
+	// 		}
+	// 	}
+	// 	// column check
+	// 	for (var i = 0; i < tiktakState[0].length; i++) {
+	// 		var column = [tiktakState[0][i], tiktakState[1][i], tiktakState[2][i]];
+	// 		if (column.sum() === -3 || column.sum() === 3) {
+	// 			$($(rows[0]).children()[i]).addClass(blinkClass);
+	// 			$($(rows[1]).children()[i]).addClass(blinkClass);
+	// 			$($(rows[2]).children()[i]).addClass(blinkClass);
+	// 		}
+	// 	}
+	// 	var diagonal1 = [tiktakState[0][0], tiktakState[1][1], tiktakState[2][2]];
+	// 	var diagonal2 = [tiktakState[2][0], tiktakState[1][1], tiktakState[0][2]];
+	// 	if (diagonal1.sum() === 3 || diagonal1.sum() === -3) {
+	// 		var blinkClass = diagonal1.sum() === 3 ? 'blink-red' : 'blink-green';
+	// 		$($(rows[0]).children()[0]).addClass(blinkClass);
+	// 		$($(rows[1]).children()[1]).addClass(blinkClass);
+	// 		$($(rows[2]).children()[2]).addClass(blinkClass);
+	// 	}
+	// 	if (diagonal2.sum() === 3 || diagonal2.sum() === -3) {
+	// 		var blinkClass = diagonal2.sum() === 3 ? 'blink-red' : 'blink-green';
+	// 		$($(rows[2]).children()[0]).addClass(blinkClass);
+	// 		$($(rows[1]).children()[1]).addClass(blinkClass);
+	// 		$($(rows[0]).children()[2]).addClass(blinkClass);
+	// 	}
+	// }
 
 	function diagonalsAcrossPoint(point, allDiagonals) {
 		return allDiagonals.filter(function(item) {
@@ -255,117 +278,114 @@ $(document).ready(function() {
 			}));
 		});
 	}
-
-	var findWinRow = function winRow(inArray, winLength) {
-		var at = -1,
-			winningSum = winLength * -1;
-
-		inArray.sliding(winLength, undefined, function (arr, idx) {
-			if(arr.sum() !== winningSum){ return; }
+	function gameover(winLine) {
+		var event = new CustomEvent('gameover', { 'detail': winLine });
+		window.dispatchEvent(event);
+	}
+	var findWiningLine = function winingLine(inArray, slidingWindow, targetSum) {
+		var at = -1;
+		inArray.sliding(slidingWindow, undefined, function (arr, idx) {
+			if(arr.sum() !== targetSum){ return; }
 			at = idx;
 			return true;
 		});
 		return at;
 	}
-	function isUserWon(state, winLength, pos) {
-		var won;
-		var winningSum = winLength * -1;
+	var findWiningRow = function winingRow(state, slidingWindow, pos, targetSum){
+		var start = Math.max(0, pos.y  - (slidingWindow - 1)),
+			end = pos.y + slidingWindow,
+			winingRow = [];
 
-		//For row
-		var start = Math.max(0, pos.y  - (winLength - 1)),
-			end = pos.y + winLength;
-		var rowMadeAt = findWinRow(state[pos.x].slice(start, end), winLength);
+		var rowMadeAt = 
+			findWiningLine(state[pos.x].slice(start, end), slidingWindow, targetSum);
+		console.log('row', state[pos.x].slice(start, end), rowMadeAt);
 		if (rowMadeAt >= 0) {
-			won = {
-				from: { x: pos.x, y: rowMadeAt -1 },
-				to: { x: pos.x, y: rowMadeAt + winLength -1 }
+			var at = start + rowMadeAt;
+			for (var i = 0; i >= slidingWindow - 1; i--) {
+				var x = pos.x, y = at + i;
+				winingRow.push({x: x, y: y, val:state[x][y]});
 			}
-			return won;
 		}
-
-		//For column
-		var start = Math.max(0, pos.x  - (winLength - 1)),
-			end = pos.x + winLength;
+		return winingRow;
+	};
+	var findWiningColumn = function winingCol(state, slidingWindow, pos, targetSum){
+		var start = Math.max(0, pos.x  - (slidingWindow - 1)),
+			end = pos.x + slidingWindow;
 		
 		var incolumn = state.map(function (row, idx) {
 			return row[pos.y];
 		}).slice(start, end);
-		var colMadeAt = findWinRow(incolumn, winLength);
+		var colMadeAt = findWiningLine(incolumn, slidingWindow, targetSum);
+		console.log('col', incolumn , colMadeAt);
 		if(colMadeAt >= 0){
-			won = {
-				from: { x: colMadeAt - 1, y: pos.y },
-				to: { x: colMadeAt + winLength - 1, y: pos.y }
+			var at = start + colMadeAt;
+			for (var i = 0; i >= slidingWindow - 1; i--) {
+				var x = at + i, y = pos.y;
+				winingRow.push({x: x, y: y, val:state[x][y]});
 			}
-			return won;
 		}
-		//For forward diagonal
-		/*
-		function getPositions(pos){
-var dispacement = (3- 1), winLength = 3; 
+		return won;
+	};
+	var findWiningForwardDiagonal = 
+			function winingForwardDia(state, slidingWindow, pos, targetSum) {
+		var dispacement = (slidingWindow - 1);
 		var tempX = pos.x - dispacement,
 			tempY = pos.y - dispacement,
-            tempeX = pos.x + winLength,
-            tempeY = pos.y + winLength;
-		var startX = Math.max(0, tempX),
-			startY = Math.max(0, tempY),
-			endX = Math.min(state.length, tempeX),
-			endY = Math.min(state.length, tempeY);
-		startX = tempY < 0 ? Math.max(0, startX + tempY): startX;
-		startY = tempX < 0 ? Math.max(0, startY + tempX): startY;
-        var xlen = state.length, ylen = state[0].length;
-        var a = tempeY - ylen, b = tempeX - xlen;
-        endX =  a > 0 ? endX - a: endX;
-        endY = b > 0? endY - b: endY;
- console.log(startX, endX, startY, endY);
-}
-		*/
-		var dispacement = (winLength - 1);
-		var startX = Math.max(0, pos.x  - dispacement),
-			startY = Math.max(0, pos.y - dispacement),
-			endX = Math.min(state.length, pos.x + dispacement),
-			endY = Math.min(state.length, pos.y + dispacement);
-		
-		var fdiagonal = state.slice(startX, endX).map(function (row, idx) {
-			return row.slice(startY, endY);
-		}).map(function (row, idx) {
-			 return row[idx]; 
-		});
-		var colMadeAt = findWinRow(incolumn, winLength);
-		if(colMadeAt >= 0){
-			won = {
-				from: { x: colMadeAt - 1, y: pos.y },
-				to: { x: colMadeAt + winLength - 1, y: pos.y }
+			fdiagonal = [], winingDia = [];
+		for(var i = 0; i <= dispacement*2; i++){
+			var el = state[tempX] !== undefined ? state[tempX][tempY]: undefined;
+			if(el !== undefined){
+				fdiagonal.push({x:tempX, y:tempY, val:el});
 			}
-			return won;
+			tempX++;
+			tempY++;
 		}
-		//For backward diagonal
-		var tempX = pos.x - dispacement,
-		tempY = pos.y - dispacement;
-		startX = Math.min(state.length, pos.x - dispacement),
-		startY = Math.max(0, pos.y - dispacement),
-		endX = Math.max(0, pos.x  + winLength),
-		endY = Math.min(state.length, pos.y + winLength);
-		var yLen = state[0].length;
-		startX = tempY > yLen ? Math.min(yLen, startX + (tempY - yLen)): startX;
-		startY = tempX < 0 ? Math.max(0, startY - tempX): startX;
-		var bdiagonal = state.slice(startX, endX).map(function (row, idx) {
-			return row.slice(startY, endY);
-		}).map(function (row, idx) {
-			 return row[row.length - (idx +1)]; 
-		});
-		var backwardDiaAt = findWinRow(bdiagonal, winLength);
+		if(fdiagonal.length >= slidingWindow){
+			var justValues = fdiagonal.map(function(el){return el.val;});
+			var forwardAt = findWiningLine(justValues, slidingWindow, pos, targetSum);
+		}
+		console.log('forwDia', fdiagonal , forwardAt);
+		if(forwardAt >= 0){
+			winingDia = fdiagonal.slice(forwardAt, forwardAt + slidingWindow);
+		}
+		return winingDia;
+	}
+	var findWiningBackwardDiagonal = 
+			function winingBackwardDia(state, slidingWindow, pos, targetSum) {
+		var backX = pos.x - dispacement,
+		backY = pos.y + dispacement,
+		bdiagonal = [], winingDia = [];
+		for(var i = 0; i <= dispacement*2; i++){
+			var el = state[backX] !== undefined ? state[backX][backY]: undefined;
+			if(el !== undefined){
+				bdiagonal.push({x:backX, y:backY, val:el});
+			}
+			backX++;
+			backY--;
+		}
+		var backwardDiaAt = 
+			findWiningLine(bdiagonal.map(
+					function(el){return el.val;}), slidingWindow, pos, targetSum);
 		console.log('backDia', bdiagonal , backwardDiaAt );
 		if(backwardDiaAt >= 0){
-			var xAt = startX - backwardDiaAt,
-				yAt = startY + backwardDiaAt;
-			won = {
-				from: { x: xAt, y: yAt },
-				to: { x: xAt - dispacement, y: yAt + dispacement }
-			}
-			return won;
+			winingDia = bdiagonal.slice(backwardDiaAt, backwardDiaAt + slidingWindow);
 		}
+		return winingDia;
+	}
 
-		return won;
+	function processUserEntry(state, winLength, pos) {
+		var winLine;
+		//For row
+		winLine = findWiningRow(state, winLength, pos, userWinSum);
+		//For column
+		winLine = findWiningColumn(state, winLength, pos, userWinSum);
+		//For forward diagonal
+		winLine = findWiningForwardDiagonal(state, winLength, pos, userWinSum);
+		//For backward diagonal
+		winLine = findWiningBackwardDiagonal(state, winLength, pos, userWinSum);
+		if(winLine.length > 0){
+			gameover(winLine);
+		}
 	}
 
 	function findDiagonals(state, daigonalLength) {
