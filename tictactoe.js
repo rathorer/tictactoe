@@ -2,18 +2,17 @@ $(document).ready(function() {
 	var tiktakState,
 		userInput,
 		computerInput,
-		winLength,
-		gameover, userWinSum, computerWinSum;
+		winLength, compLastPos,
+		userWinSum, computerWinSum;
 
 	function init() {
 		var winLength = 4, stateLength = 6;//TODO: replace with dynamic values.
 		var defaultValue = 0;
 		var tiktakState = new Array(stateLength)
-			.fill(new Array(stateLength).fill(defaultValue));,
+			.fill(new Array(stateLength).fill(defaultValue)),
 		userInput = -1,
 		computerInput = 1,
 		winLength = 4,
-		gameover = false,
 		userWinSum = userInput * winLength,
 		computerWinSum = computerInput * winLength;
 		window.addEventListener('gameover', (e) => {
@@ -35,9 +34,9 @@ $(document).ready(function() {
 		tiktakState[pos.x][pos.y] = userInput;
 		processUserEntry(tiktakState, winLength, pos);
 		setTimeout(function() {
-			var done = play(tiktakState, pos);
-			if (done.done) {
-				tiktakState[done.x][done.y] = computerInput;
+			var played = play(tiktakState, pos);
+			if (played.won) {
+				tiktakState[played.x][played.y] = computerInput;
 				if (done.gameover) {
 					$('#message').html('<h4>Game over</h4>');
 					highlightWinningLine(tiktakState);
@@ -53,93 +52,167 @@ $(document).ready(function() {
 		console.log(pos);
 	});
 
-	function tryToDefend(row, done) {
-		if (row.sum() == -2) {
+	function tryToDefend(row) {
+		var toBeLost = userWinSum - userInput,
+			emptyplace = -1;
+		if (row.sum() === toBeLost) {
 			var emptyplace = row.indexOf(0);
 			row[emptyplace] = computerInput;
-			done.y = emptyplace;
-			done.done = true;
 		}
-		return row;
+		return emptyplace;
 	}
 
-	function tryToWin(row, done) {
-		if (row.sum() == 2) {
-			var emptyplace = row.indexOf(0);
-			if (emptyplace >= 0) {
-				row[emptyplace] = computerInput;
-				done.y = emptyplace;
-				done.done = true;
+	function tryToWin(state, pos, slidingWindow, recursive) {
+		var possibleWinLine,
+			slidingWindow = slidingWindow || winLength + 1,
+			pos = pos || compLastPos,
+			sum = computerWinSum - (computerInput * 2);
+
+		function playChance(line) {
+			var emptyplaceIdx = -1, at;
+			if (line.length > 0) {
+				var lineAt = findWiningLine(line.map((el)=> el.val), sum);
+				var possibilities = [line[lineAt - 1], line[lineAt + 1]];
+				var first = state[possibilities[0].x][possibilities[0].y];
+				var second = state[possibilities[1].x][possibilities[1].y];
+				if(first && second && !recursive){
+					var a = tryToWin(state, first, winLength - 1, true),
+						b = tryToWin(state, second, winLength -1, true);
+				}
+				emptyplaceIdx = line.findIndex((el) => el.val===0);
+
+				if(emptyplaceIdx>=0){
+					var emptyplace = line[emptyplaceIdx];
+					emptyplace.val = computerInput;
+					state[emptyplace.x][emptyplace.y] = computerInput;
+					at = {x:emptyplace.x, y:emptyplace.y, won:true, line:line.slice(winAt, winAt+winLength)};
+				}
 			}
+			return at;
 		}
-		return row;
+		return playChance(findWiningRow(state, slidingWindow, pos, sum))
+			|| playChance(findWiningColumn(state, slidingWindow, pos, sum))
+			|| playChance(findWiningForwardDiagonal(state, slidingWindow, pos, sum))
+			|| playChance(findWiningBackwardDiagonal(state, slidingWindow, pos, sum));
 	}
 
 	function play(tiktakState, pos) {
-		var done = priorityWiseUpdate(tiktakState, tryToWin);
-		if (done.done) {
-			done.gameover = true;
-		} else if (!done.done) {
-			done = priorityWiseUpdate(tiktakState, tryToDefend);
-		}
-		if (!done.done) {
-			// row check
-			var updateTo = randomUpdateTo(pos, tiktakState);
-			if (typeof updateTo !== 'undefined') {
-				tiktakState[updateTo.x][updateTo.y] = computerInput;
-				done.done = true;
-				done.x = updateTo.x;
-				done.y = updateTo.y;
-			} else {
-				done.gameover = true;
+		var played = playWinningChance(tiktakState);
+		if (played) {
+			if(played.won){
+				gameover(played.line);
 			}
+			return played;
+		}
+		played = playDefendingChance(tiktakState, pos);
+		if(played){
+			return played; 
+		}
+		var updateTo = randomUpdateTo(pos, tiktakState);
+		if (typeof updateTo !== 'undefined') {
+			tiktakState[updateTo.x][updateTo.y] = computerInput;
+			done.done = true;
+			done.x = updateTo.x;
+			done.y = updateTo.y;
+		} else {
+			done.gameover = true;
 		}
 		return done;
 	}
 
-	function priorityWiseUpdate(tiktakState, updateMethod) {
-		var done = {
-			done: false,
-			x: undefined,
-			y: undefined
-		};
-		// row check
-		for (var i = 0; i < tiktakState.length; i++) {
-			if (!done.done) {
-				row = updateMethod(tiktakState[i], done);
-				if (done.done) {
-					done.x = i;
-					return done;
+	function playWinningChance(state) {
+		var possibleWinLine,
+			slidingWindow = winLength + 1,
+			pos = compLastPos,
+			sum = computerWinSum - computerInput;
+
+		function playChance(line) {
+			var emptyplaceIdx = -1, at;
+			if (line.length > 0) {
+				emptyplaceIdx = line.findIndex((el) => el.val===0);
+				if(emptyplaceIdx>=0){
+					var emptyplace = line[emptyplaceIdx];
+					emptyplace.val = computerInput;
+					var winAt = findWiningLine(line.map((el)=> el.val), computerWinSum);
+					state[emptyplace.x][emptyplace.y] = computerInput;
+					at = {x:emptyplace.x, y:emptyplace.y, won:true, line:line.slice(winAt, winAt+winLength)};
 				}
 			}
+			return at;
 		}
-		// column check
-		for (var i = 0; i < tiktakState[0].length; i++) {
-			if (!done.done) {
-				var column = [tiktakState[0][i], tiktakState[1][i], tiktakState[2][i]];
-				column = updateMethod(column, done);
-				if (done.done) {
-					done.x = done.y;
-					done.y = i;
-					return done;
-				}
-			}
-		}
-		// diagonal check
-		var diagonal1 = [tiktakState[0][0], tiktakState[1][1], tiktakState[2][2]];
-		diagonal1 = updateMethod(diagonal1, done);
-		if (done.done) {
-			done.x = done.y;
-			return done;
-		}
-		var diagonal2 = [tiktakState[2][0], tiktakState[1][1], tiktakState[0][2]];
-		diagonal2 = updateMethod(diagonal2, done);
-		if (done.done) {
-			done.x = Math.abs(done.y - 2);
-			return done;
-		}
-		return done;
+		return playChance(findWiningRow(state, slidingWindow, pos, sum))
+			|| playChance(findWiningColumn(state, slidingWindow, pos, sum))
+			|| playChance(findWiningForwardDiagonal(state, slidingWindow, pos, sum))
+			|| playChance(findWiningBackwardDiagonal(state, slidingWindow, pos, sum));
 	}
+	function playDefendingChance(state, pos) {
+		var possibleWinLine,
+			slidingWindow = winLength + 1,
+			sum = userWinSum - userInput;
+
+		function playChance(line) {
+			var emptyplaceIdx = -1, at;
+			if (line.length > 0) {
+				emptyplaceIdx = line.findIndex((el) => el.val===0);
+				if(emptyplaceIdx>=0){
+					var emptyplace = line[emptyplaceIdx];
+					emptyplace.val = computerInput;					
+					state[emptyplace.x][emptyplace.y] = computerInput;
+					at = {x:emptyplace.x, y:emptyplace.y, won:false};
+				}
+			}
+			return at;
+		}
+		return playChance(findWiningRow(state, slidingWindow, pos, sum))
+			|| playChance(findWiningColumn(state, slidingWindow, pos, sum))
+			|| playChance(findWiningForwardDiagonal(state, slidingWindow, pos, sum))
+			|| playChance(findWiningBackwardDiagonal(state, slidingWindow, pos, sum));
+	}
+	// function priorityWiseUpdate(tiktakState, updateMethod) {
+	// 	var done = {
+	// 		done: false,
+	// 		x: undefined,
+	// 		y: undefined
+	// 	};
+	// 	// row check
+	// 	for (var i = 0; i < tiktakState.length; i++) {
+	// 		if (!done.done) {
+	// 			row = updateMethod(tiktakState[i], done);
+	// 			if (done.done) {
+	// 				done.x = i;
+	// 				return done;
+	// 			}
+	// 		}
+	// 	}
+	// 	// column check
+	// 	for (var i = 0; i < tiktakState[0].length; i++) {
+	// 		if (!done.done) {
+	// 			var column = tiktakState.map((row)=>{
+	// 				return row[i];
+	// 			});
+	// 			column = updateMethod(column, done);
+	// 			if (done.done) {
+	// 				done.x = done.y;
+	// 				done.y = i;
+	// 				return done;
+	// 			}
+	// 		}
+	// 	}
+	// 	// diagonal check
+	// 	var diagonal1 = [tiktakState[0][0], tiktakState[1][1], tiktakState[2][2]];
+	// 	diagonal1 = updateMethod(diagonal1, done);
+	// 	if (done.done) {
+	// 		done.x = done.y;
+	// 		return done;
+	// 	}
+	// 	var diagonal2 = [tiktakState[2][0], tiktakState[1][1], tiktakState[0][2]];
+	// 	diagonal2 = updateMethod(diagonal2, done);
+	// 	if (done.done) {
+	// 		done.x = Math.abs(done.y - 2);
+	// 		return done;
+	// 	}
+	// 	return done;
+	// }
 
 	function randomUpdateTo(pos, tiktakState) {
 		var cpRow = tiktakState[pos.x];
@@ -282,22 +355,22 @@ $(document).ready(function() {
 		var event = new CustomEvent('gameover', { 'detail': winLine });
 		window.dispatchEvent(event);
 	}
-	var findWiningLine = function winingLine(inArray, slidingWindow, targetSum) {
+	function findWiningLine(inArray, targetSum) {
 		var at = -1;
-		inArray.sliding(slidingWindow, undefined, function (arr, idx) {
+		inArray.sliding(winLength, undefined, function (arr, idx) {
 			if(arr.sum() !== targetSum){ return; }
 			at = idx;
 			return true;
 		});
 		return at;
 	}
-	var findWiningRow = function winingRow(state, slidingWindow, pos, targetSum){
+	function findWiningRow(state, slidingWindow, pos, targetSum){
 		var start = Math.max(0, pos.y  - (slidingWindow - 1)),
 			end = pos.y + slidingWindow,
 			winingRow = [];
 
 		var rowMadeAt = 
-			findWiningLine(state[pos.x].slice(start, end), slidingWindow, targetSum);
+			findWiningLine(state[pos.x].slice(start, end), targetSum);
 		console.log('row', state[pos.x].slice(start, end), rowMadeAt);
 		if (rowMadeAt >= 0) {
 			var at = start + rowMadeAt;
@@ -307,15 +380,15 @@ $(document).ready(function() {
 			}
 		}
 		return winingRow;
-	};
-	var findWiningColumn = function winingCol(state, slidingWindow, pos, targetSum){
+	}
+	function findWiningColumn(state, slidingWindow, pos, targetSum){
 		var start = Math.max(0, pos.x  - (slidingWindow - 1)),
 			end = pos.x + slidingWindow;
 		
 		var incolumn = state.map(function (row, idx) {
 			return row[pos.y];
 		}).slice(start, end);
-		var colMadeAt = findWiningLine(incolumn, slidingWindow, targetSum);
+		var colMadeAt = findWiningLine(incolumn, targetSum);
 		console.log('col', incolumn , colMadeAt);
 		if(colMadeAt >= 0){
 			var at = start + colMadeAt;
@@ -325,9 +398,8 @@ $(document).ready(function() {
 			}
 		}
 		return won;
-	};
-	var findWiningForwardDiagonal = 
-			function winingForwardDia(state, slidingWindow, pos, targetSum) {
+	}
+	function findWiningForwardDiagonal(state, slidingWindow, pos, targetSum) {
 		var dispacement = (slidingWindow - 1);
 		var tempX = pos.x - dispacement,
 			tempY = pos.y - dispacement,
@@ -342,7 +414,7 @@ $(document).ready(function() {
 		}
 		if(fdiagonal.length >= slidingWindow){
 			var justValues = fdiagonal.map(function(el){return el.val;});
-			var forwardAt = findWiningLine(justValues, slidingWindow, pos, targetSum);
+			var forwardAt = findWiningLine(justValues, targetSum);
 		}
 		console.log('forwDia', fdiagonal , forwardAt);
 		if(forwardAt >= 0){
@@ -350,8 +422,7 @@ $(document).ready(function() {
 		}
 		return winingDia;
 	}
-	var findWiningBackwardDiagonal = 
-			function winingBackwardDia(state, slidingWindow, pos, targetSum) {
+	function findWiningBackwardDiagonal(state, slidingWindow, pos, targetSum) {
 		var backX = pos.x - dispacement,
 		backY = pos.y + dispacement,
 		bdiagonal = [], winingDia = [];
@@ -365,7 +436,7 @@ $(document).ready(function() {
 		}
 		var backwardDiaAt = 
 			findWiningLine(bdiagonal.map(
-					function(el){return el.val;}), slidingWindow, pos, targetSum);
+					function(el){return el.val;}), targetSum);
 		console.log('backDia', bdiagonal , backwardDiaAt );
 		if(backwardDiaAt >= 0){
 			winingDia = bdiagonal.slice(backwardDiaAt, backwardDiaAt + slidingWindow);
@@ -456,7 +527,8 @@ $(document).ready(function() {
         arr.forEach(function(num, index) {
             window.push(num);
             if (window.length === size) {
-                output.push(iterator(window, index)); // passing starting index of the sliding window
+            	var idx = index - size + 1;
+                output.push(iterator(window, idx)); // passing starting index of the sliding window
                 window = window.tail();
             } else {
                 output.push(defaultValue);
