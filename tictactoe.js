@@ -3,22 +3,31 @@ $(document).ready(function() {
 		userInput,
 		computerInput,
 		winLength, compLastPos,
-		userWinSum, computerWinSum;
+		userWinSum, computerWinSum,
+		tiktakTable = $('#tiktakTable');
 
 	function init() {
 		var winLength = 4, stateLength = 6;//TODO: replace with dynamic values.
 		var defaultValue = 0;
-		var tiktakState = new Array(stateLength)
-			.fill(new Array(stateLength).fill(defaultValue)),
+		tiktakState = new Array(stateLength)
+			.fill(defaultValue).map(()=> new Array(stateLength).fill(defaultValue)),
 		userInput = -1,
 		computerInput = 1,
 		winLength = 4,
 		userWinSum = userInput * winLength,
 		computerWinSum = computerInput * winLength;
+		var template = '';
+		tiktakState.forEach(function(row){
+			var tr = document.createElement("tr");
+			row.forEach(function(cell){
+				tr.appendChild(document.createElement("td"));
+			});
+			tiktakTable.append(tr);
+		});
 		window.addEventListener('gameover', (e) => {
 			var winLine = e.detail.winLine;
 			if(highlightWinningLine(winLine)){
-				$('#tiktakTable').off('click');
+				tiktakTable.off('click');
 			};
 		}, false);
 	}
@@ -46,7 +55,7 @@ $(document).ready(function() {
 				$('#message').html('<h4>Game over</h4>');
 				highlightWinningLine(tiktakState);
 			}
-			var rows = $("#tiktakTable").find('tr');
+			var rows = tiktakTable.find('tr');
 			$($(rows[done.x]).find('td')[done.y]).html('X');
 		}, 500);
 		console.log(pos);
@@ -397,7 +406,7 @@ $(document).ready(function() {
 				winingRow.push({x: x, y: y, val:state[x][y]});
 			}
 		}
-		return won;
+		return winningRow;
 	}
 	function findWiningForwardDiagonal(state, slidingWindow, pos, targetSum) {
 		var dispacement = (slidingWindow - 1);
